@@ -1,0 +1,19 @@
+# RepoLens - Application Configuration (copy to application.properties)
+spring.application.name=RepoLens
+
+# MySQL Database
+spring.datasource.url=jdbc:mysql://localhost:3306/repolens
+spring.datasource.username=root
+spring.datasource.password=your_password
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
+# JPA / Hibernate
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=false
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
+
+# Virtual Threads (Project Loom) - Enable for scalable non-blocking I/O
+spring.threads.virtual.enabled=true
+
+# Temporary directory for repository cloning
+repolens.clone.temp-dir=${java.io.tmpdir}/repolens-clones
