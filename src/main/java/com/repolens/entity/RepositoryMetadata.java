@@ -1,5 +1,6 @@
 package com.repolens.entity;
 
+import com.repolens.dto.ProjectMap;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -42,9 +43,13 @@ public class RepositoryMetadata {
     @Column(name = "ingested_at", nullable = false)
     private Instant ingestedAt;
 
-    @Column(name = "package_structure", columnDefinition = "TEXT")
+    @Column(name = "package_structure", columnDefinition = "JSON")
     @Convert(converter = PackageStructureConverter.class)
     private Map<String, Integer> packageStructure;
+
+    @Column(name = "project_map", columnDefinition = "JSON")
+    @Convert(converter = ProjectMapConverter.class)
+    private ProjectMap projectMap;
 
     @PrePersist
     protected void onCreate() {

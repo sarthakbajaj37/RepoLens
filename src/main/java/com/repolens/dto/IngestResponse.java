@@ -25,4 +25,5 @@ public class IngestResponse {
     private long totalLinesOfCode;
     private Instant ingestedAt;
     private Map<String, Integer> packageStructure;
+    private ProjectMap projectMap;
 }

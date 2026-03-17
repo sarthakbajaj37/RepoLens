@@ -68,6 +68,13 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
+        <!-- JavaParser for static code analysis -->
+        <dependency>
+            <groupId>com.github.javaparser</groupId>
+            <artifactId>javaparser-core</artifactId>
+            <version>3.28.0</version>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

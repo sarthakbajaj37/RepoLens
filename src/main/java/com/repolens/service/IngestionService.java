@@ -17,7 +17,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.repolens.dto.IngestResponse;
+import com.repolens.dto.ProjectMap;
 import com.repolens.entity.RepositoryMetadata;
+import com.repolens.mapper.ComponentMapper;
 import com.repolens.repository.RepositoryMetadataRepository;
 import com.repolens.scanner.JavaFileScanner;
 import com.repolens.scanner.ScanResult;
@@ -40,6 +42,7 @@ public class IngestionService {
 
     private final RepositoryMetadataRepository repository;
     private final JavaFileScanner fileScanner;
+    private final ComponentMapper componentMapper;
     private final ExecutorService virtualThreadExecutor;
 
     @Value("${repolens.clone.temp-dir:/tmp/repolens-clones}")
@@ -93,6 +96,7 @@ public class IngestionService {
                     .close();
 
             ScanResult scanResult = fileScanner.scan(clonePath);
+            ProjectMap projectMap = componentMapper.mapProject(clonePath);
 
             RepositoryMetadata metadata = repository.findByOwnerAndName(owner, name)
                     .map(existing -> {
@@ -100,6 +104,7 @@ public class IngestionService {
                         existing.setFileCount(scanResult.getJavaFiles().size());
                         existing.setTotalLinesOfCode(scanResult.getTotalLinesOfCode());
                         existing.setPackageStructure(scanResult.getPackageStructure());
+                        existing.setProjectMap(projectMap);
                         existing.setIngestedAt(Instant.now());
                         return existing;
                     })
@@ -110,6 +115,7 @@ public class IngestionService {
                             .fileCount(scanResult.getJavaFiles().size())
                             .totalLinesOfCode(scanResult.getTotalLinesOfCode())
                             .packageStructure(scanResult.getPackageStructure())
+                            .projectMap(projectMap)
                             .build());
 
             metadata = repository.save(metadata);
@@ -140,6 +146,7 @@ public class IngestionService {
                 .totalLinesOfCode(metadata.getTotalLinesOfCode())
                 .ingestedAt(metadata.getIngestedAt())
                 .packageStructure(pkg != null ? pkg : Collections.emptyMap())
+                .projectMap(metadata.getProjectMap())
                 .build();
     }
 
