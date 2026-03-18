@@ -4,6 +4,7 @@ import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
@@ -124,25 +125,61 @@ public class DependencyTreeService {
         }
     }
 
+    private static final String REQUIRED_ARGS = "RequiredArgsConstructor";
+    private static final String ALL_ARGS = "AllArgsConstructor";
+
     private List<String> extractDependenciesWithResolution(ClassOrInterfaceDeclaration n, CompilationUnit cu, String pkg) {
         Set<String> deps = new LinkedHashSet<>();
         for (FieldDeclaration field : n.getFields()) {
-            if (!hasAutowiredOrInject(field)) continue;
-            field.getVariables().forEach(v -> {
-                String fqn = resolveTypeToFqn(v.getType(), cu, pkg);
-                if (fqn != null) deps.add(fqn);
-            });
+            if (hasAutowiredOrInject(field)) {
+                field.getVariables().forEach(v -> addResolved(deps, v.getType(), cu, pkg));
+            } else if (hasLombokConstructorAnnotation(n)) {
+                if (hasRequiredArgsConstructor(n) && isFinal(field)) {
+                    field.getVariables().forEach(v -> addResolved(deps, v.getType(), cu, pkg));
+                } else if (hasAllArgsConstructor(n)) {
+                    field.getVariables().forEach(v -> addResolved(deps, v.getType(), cu, pkg));
+                }
+            }
         }
         var constructors = n.getConstructors();
         for (ConstructorDeclaration ctor : constructors) {
             if (hasAutowiredOrInject(ctor) || constructors.size() == 1) {
-                ctor.getParameters().forEach(p -> {
-                    String fqn = resolveTypeToFqn(p.getType(), cu, pkg);
-                    if (fqn != null) deps.add(fqn);
-                });
+                ctor.getParameters().forEach(p -> addResolved(deps, p.getType(), cu, pkg));
             }
         }
         return new ArrayList<>(deps);
+    }
+
+    private void addResolved(Set<String> deps, Type type, CompilationUnit cu, String pkg) {
+        String fqn = resolveTypeToFqn(type, cu, pkg);
+        if (fqn != null) deps.add(fqn);
+    }
+
+    private boolean hasLombokConstructorAnnotation(ClassOrInterfaceDeclaration n) {
+        return n.getAnnotations().stream().anyMatch(a -> {
+            String name = a.getNameAsString();
+            return name.endsWith(REQUIRED_ARGS) || name.equals(REQUIRED_ARGS)
+                    || name.endsWith(ALL_ARGS) || name.equals(ALL_ARGS);
+        });
+    }
+
+    private boolean hasRequiredArgsConstructor(ClassOrInterfaceDeclaration n) {
+        return n.getAnnotations().stream().anyMatch(a -> {
+            String name = a.getNameAsString();
+            return name.endsWith(REQUIRED_ARGS) || name.equals(REQUIRED_ARGS);
+        });
+    }
+
+    private boolean hasAllArgsConstructor(ClassOrInterfaceDeclaration n) {
+        return n.getAnnotations().stream().anyMatch(a -> {
+            String name = a.getNameAsString();
+            return name.endsWith(ALL_ARGS) || name.equals(ALL_ARGS);
+        });
+    }
+
+    private boolean isFinal(FieldDeclaration field) {
+        return field.getModifiers().stream()
+                .anyMatch(m -> m.getKeyword() == Modifier.Keyword.FINAL);
     }
 
     private String resolveTypeToFqn(Type type, CompilationUnit cu, String pkg) {
