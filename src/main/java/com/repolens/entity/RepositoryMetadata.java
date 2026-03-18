@@ -51,6 +51,9 @@ public class RepositoryMetadata {
     @Convert(converter = ProjectMapConverter.class)
     private ProjectMap projectMap;
 
+    @Column(name = "documentation", columnDefinition = "LONGTEXT")
+    private String documentation;
+
     @PrePersist
     protected void onCreate() {
         if (ingestedAt == null) {

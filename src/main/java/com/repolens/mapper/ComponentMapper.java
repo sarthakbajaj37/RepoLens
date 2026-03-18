@@ -106,6 +106,10 @@ public class ComponentMapper {
                 .mainModules(mainModules)
                 .controllers(controllers)
                 .services(services)
+                .repositories(Collections.emptyList())
+                .dependencyGraph(Collections.emptyMap())
+                .circularDependencies(Collections.emptyList())
+                .deepNestingWarnings(Collections.emptyList())
                 .build();
     }
 

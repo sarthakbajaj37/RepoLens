@@ -21,6 +21,8 @@ import com.repolens.dto.ProjectMap;
 import com.repolens.entity.RepositoryMetadata;
 import com.repolens.mapper.ComponentMapper;
 import com.repolens.repository.RepositoryMetadataRepository;
+import com.repolens.service.DependencyTreeService;
+import com.repolens.service.DocumentationService;
 import com.repolens.scanner.JavaFileScanner;
 import com.repolens.scanner.ScanResult;
 
@@ -43,6 +45,8 @@ public class IngestionService {
     private final RepositoryMetadataRepository repository;
     private final JavaFileScanner fileScanner;
     private final ComponentMapper componentMapper;
+    private final DependencyTreeService dependencyTreeService;
+    private final DocumentationService documentationService;
     private final ExecutorService virtualThreadExecutor;
 
     @Value("${repolens.clone.temp-dir:/tmp/repolens-clones}")
@@ -96,7 +100,8 @@ public class IngestionService {
                     .close();
 
             ScanResult scanResult = fileScanner.scan(clonePath);
-            ProjectMap projectMap = componentMapper.mapProject(clonePath);
+            ProjectMap projectMap = dependencyTreeService.analyzeDependencies(clonePath, componentMapper.mapProject(clonePath));
+            ProjectMap finalProjectMap = projectMap;
 
             RepositoryMetadata metadata = repository.findByOwnerAndName(owner, name)
                     .map(existing -> {
@@ -104,7 +109,7 @@ public class IngestionService {
                         existing.setFileCount(scanResult.getJavaFiles().size());
                         existing.setTotalLinesOfCode(scanResult.getTotalLinesOfCode());
                         existing.setPackageStructure(scanResult.getPackageStructure());
-                        existing.setProjectMap(projectMap);
+                        existing.setProjectMap(finalProjectMap);
                         existing.setIngestedAt(Instant.now());
                         return existing;
                     })
@@ -115,12 +120,19 @@ public class IngestionService {
                             .fileCount(scanResult.getJavaFiles().size())
                             .totalLinesOfCode(scanResult.getTotalLinesOfCode())
                             .packageStructure(scanResult.getPackageStructure())
-                            .projectMap(projectMap)
+                            .projectMap(finalProjectMap)
                             .build());
 
             metadata = repository.save(metadata);
             log.info("Ingested repository {}/{}: {} files, {} LOC",
                     owner, name, metadata.getFileCount(), metadata.getTotalLinesOfCode());
+
+            // Generate documentation asynchronously (virtual thread - non-blocking)
+            RepositoryMetadata finalMetadata = metadata;
+            CompletableFuture.runAsync(
+                    () -> documentationService.generateAndStore(finalMetadata),
+                    virtualThreadExecutor
+            );
 
             return toIngestResponse(metadata);
 
